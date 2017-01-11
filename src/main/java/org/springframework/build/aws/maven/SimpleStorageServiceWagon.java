@@ -21,7 +21,14 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.internal.Mimetypes;
-import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.ListObjectsRequest;
+import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.Region;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
 import org.apache.maven.wagon.ResourceDoesNotExistException;
 import org.apache.maven.wagon.TransferFailedException;
 import org.apache.maven.wagon.authentication.AuthenticationException;
@@ -29,7 +36,12 @@ import org.apache.maven.wagon.authentication.AuthenticationInfo;
 import org.apache.maven.wagon.proxy.ProxyInfoProvider;
 import org.apache.maven.wagon.repository.Repository;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -81,11 +93,16 @@ public final class SimpleStorageServiceWagon extends AbstractWagon {
 
             this.bucketName = S3Utils.getBucketName(repository);
             this.baseDirectory = S3Utils.getBaseDirectory(repository);
-
-            this.amazonS3 = new AmazonS3Client(credentialsProvider, clientConfiguration);
-            Region region = Region.fromLocationConstraint(this.amazonS3.getBucketLocation(this.bucketName));
-            this.amazonS3.setEndpoint(region.getEndpoint());
+            this.amazonS3 = getAmazonS3(credentialsProvider, clientConfiguration, bucketName);
         }
+    }
+
+    private static AmazonS3 getAmazonS3(AuthenticationInfoAWSCredentialsProviderChain credentialsProvider,
+                                 ClientConfiguration clientConfiguration, String bucketName) {
+        AmazonS3 amazonS3 = new AmazonS3Client(credentialsProvider, clientConfiguration);
+        Region region = Region.fromValue(amazonS3.getBucketLocation(bucketName));
+        amazonS3.setRegion(region.toAWSRegion());
+        return amazonS3;
     }
 
     @Override
@@ -247,5 +264,4 @@ public final class SimpleStorageServiceWagon extends AbstractWagon {
 
         return new PutObjectRequest(this.bucketName, key, inputStream, objectMetadata).withCannedAcl(CannedAccessControlList.PublicRead);
     }
-
 }
